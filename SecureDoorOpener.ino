@@ -1,42 +1,46 @@
 #include <Wire.h>
 #include <Adafruit_NFCShield_I2C.h>
+#include <SPI.h>
+#include <Ethernet.h>
+
+#define NFC_IRQ (2)
+#define RESET  (3)
+
+// the media access control (ethernet hardware) address for the shield:
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };  
+//the IP address for the shield:
+byte ip[] = { 10, 13, 37, 250 };    
 
 int brightness = 0;    // how bright the LED is
 int fadeAmount = 5;    // how many points to fade the LED by
 
-
-int dispenseTime = 700;
 unsigned long previousTime = millis();
-int candyDispensed = 0;
 
-int motor = 14;
-int handSensor = 5;
-int NFC_IRQ = 3;
-int tableDetect = 8;
+
+
+
+
 int rLED = 9;
 int gLED = 10;
 int bLED = 11;
 
 int buffer = 0;
-int candy = 0;
+
 int i = 0;
-int handDetected = 0;
-int cardDetected = 0;
 
 
-Adafruit_NFCShield_I2C nfc(NFC_IRQ, 7);
+
+
+Adafruit_NFCShield_I2C nfc(NFC_IRQ, RESET);
 
 void setup() {
   // put your setup code here, to run once:
   
-
+Ethernet.begin(mac, ip);
   
 pinMode(NFC_IRQ,INPUT);
 
-pinMode(motor,OUTPUT);
-pinMode(handSensor,INPUT);
-pinMode(tableDetect,INPUT);
-digitalWrite(tableDetect, HIGH); //Holds line high
+
 
 pinMode(rLED,OUTPUT);
 pinMode(gLED,OUTPUT);
@@ -44,14 +48,17 @@ pinMode(bLED,OUTPUT);
 
 //digitalWrite(gLED,HIGH);
 
-Serial.begin(9600);
+Serial.begin(57600);
 
 
-
+  uint8_t success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
+  uint8_t uidLength;
+  char data[];
 
 
   nfc.begin();
-/*
+
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (! versiondata) {
     Serial.print("Didn't find PN53x board");
@@ -78,21 +85,30 @@ Serial.begin(9600);
 
 void loop() {
 
-} */ 
+
 
 Adafruit_NFCShield_I2C nfc(NFC_IRQ, 7);
 
 
 
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
-  uint8_t uidLength;
+
 
   if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength))
   {
 
     nfc.PrintHex(uid, uidLength);
+	
+	data = "@#"; //Header for RFID: Bytes 1-2
+	
+	
 
+	
+  Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+  Udp.write("@#");
+
+    Udp.endPacket();
+	
+	
     uint32_t i;
     uint32_t b;
     
