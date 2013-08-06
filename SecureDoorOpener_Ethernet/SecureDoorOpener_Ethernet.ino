@@ -34,11 +34,14 @@ int rLED = 9;
 int gLED = 10;
 int bLED = 11;
 
-int buffer = 0;
+
 
 int i = 0;
 
-
+char RFID_packet[48];
+char NFC_packet[48];
+int NFC_Incrementor = 0;
+char buffer = 0;
 
 
 
@@ -66,15 +69,52 @@ Serial.print("Begin");
 
 
 
-
-
 }
 
 void  loop() 
              {
              
         while (mySerial.available())
-         Serial.write(mySerial.read());
+        {
+         buffer = mySerial.read();
+         
+         if (buffer == '@')
+         {
+           NFC_Incrementor = 0;
+           NFC_packet[NFC_Incrementor++] = buffer;
+         }
+          
+         else if (buffer == '*')
+         {
+          
+           if(NFC_Incrementor == 47)
+           {
+            NFC_packet[NFC_Incrementor++] = buffer;  
+            for(i=0;i<48;i++)
+             Serial.write(NFC_packet[i]); 
+            Serial.write("\n"); 
+             
+           }
+         
+           NFC_Incrementor = 0; 
+         }          
+          
+         else if (NFC_Incrementor > 0 && NFC_Incrementor <48)
+          NFC_packet[NFC_Incrementor++] = buffer;
+          
+         else
+           NFC_Incrementor = 0;         
+          }
+          
+             }
+          
+          
+          
+
+          
+
+          
+      
                
                
 	
@@ -87,12 +127,6 @@ void  loop()
 */
   
   
- 
-  
-  }
-
-
-
 
 
 

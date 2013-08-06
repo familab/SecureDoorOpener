@@ -10,6 +10,9 @@ SoftwareSerial mySerial(4, 5); // RX, TX
 #define NFC_IRQ (2)
 #define RESET  (3)
 
+char RFID_packet[48];
+char NFC_packet[48];
+
 int brightness = 0;    // how bright the LED is
 int fadeAmount = 5;    // how many points to fade the LED by
 

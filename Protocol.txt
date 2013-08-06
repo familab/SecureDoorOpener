@@ -1,0 +1,26 @@
+@#.  <- RFID
+@&.  <- NFC
+
+
+BYTE:
+1: (@)      -- Start of Packet
+2: (# or &) -- Type of Key; # for RFID, & for NFC
+3:  (0 1 2 3 4) 
+   0 - Communicated from Authorizing device. Signifies that key was not found in Program Code, EEPROM or SD Card of Auth device
+   1 - Communicated from Authorizing device. Signifies that key was found in program code
+   2 - Communicated from Authorizing device. Signifies that key was found in EEPROM 
+   3 - Communicated from Authorizing device. Signifies that key was found in SD Card Flat file
+   4 - Communicated from Server OR Authorizing device. 
+        - From Server signifies that the server has an opinion on the key
+        - From Authorizing device. Acknowledges server's request.
+4: ( .) | (+ -) or (= !) -- Status of Request
+       '.' - Communicated from RFID, or NFC communicating Device. Signifies no opinion on status of request
+       '+' - Communicated from Server. Indicates authorization and to add card to the SD card of authorizing device.
+       '-' - Communicated from Server. Indicates denial and to remove card to the SD card of authorizing device.
+       '=' - Communicated from Authorizing device or Server. Indicates Door should be unlocked.
+       '!' - Communicated from Authorizing device or Server. Indicates Door should remain locked.
+
+5: , - Comma
+6 - 13: 8 digit Hexidecimal number indicating 32-bit uptime in milliseconds of RFID, or NFC communicating device. (Will roll over after about 51 days)
+
+14 - 21: 8 digit Hexidecimal number indicating 32-bit uptime in milliseconds of Authorizating communicating device. (Will roll over after about 51 days)
