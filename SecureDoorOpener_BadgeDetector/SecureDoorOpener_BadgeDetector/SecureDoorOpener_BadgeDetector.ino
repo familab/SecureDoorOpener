@@ -3,62 +3,13 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
-#include <SoftwareSerial.h>
+//#include <SoftwareSerial.h>
+#include <Wiegand.h>
 
-/* FamiDOOR v1.1
- * Based on Crazy People by Mike Cook - http://www.thebox.myzen.co.uk/Hardware/Crazy_People.html
- * One HID reader outputing 26 bit Wiegand code to pins 2 and 3
- * Interrupt service routine gathers Wiegand pulses (zero or one) until 26 have been recieved
- * Door relay connected to pin 13 - set HIGH to unlock
- */
-#include <avr/interrupt.h>
-#include <avr/wdt.h>
-
-[... removed site code and card numbers ...]
-
-volatile long reader1 = 0;
-volatile int reader1Count = 0;
-volatile long lastBitRead = 0;
-
-enum door_state_t {
-  DOOR_LOCKED,
-  DOOR_UNLOCKED
-} doorState;
-
-long doorUnlockedTicks = 0; // time the door was opened
-
-void reader1One(void) {
-  reader1Count++;
-  reader1 = reader1 << 1;
-  reader1 |= 1;
-  lastBitRead = millis();
-}
-void reader1Zero(void) {
-  reader1Count++;
-  reader1 = reader1 << 1;
-  lastBitRead = millis();
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-SoftwareSerial mySerial(4, 5); // RX, TX
-
-#define NFC_IRQ (2)
-#define RESET  (3)
+//SoftwareSerial mySerial(4, 5); // RX, TX
 
 EthernetUDP Udp;
+WIEGAND wg;
 
 
 
@@ -81,19 +32,24 @@ unsigned long previousTime = millis();
   String data;
 
 
+int SITE_CODE = 128;
+int MIN_CARD = 3000;
+int MAX_CARD = 13000;
 
-int rLED = 9;
-int gLED = 10;
-int bLED = 11;
+char runningTime[8];
+char RFID_HexArray[8];
+
 
 
 
 int i = 0;
 
-char RFID_packet[48];
+char packet[48];
 char NFC_packet[48];
 int NFC_Incrementor = 0;
+int RFID_packetIncrementor;
 char buffer = 0;
+ char checksum = 0;
 
 
 
@@ -103,21 +59,18 @@ void setup() {
   
 Ethernet.begin(mac, ip);
   
-pinMode(NFC_IRQ,INPUT);
+pinMode(4,INPUT);
+pinMode(5,INPUT);
 
 
 
-pinMode(rLED,OUTPUT);
-pinMode(gLED,OUTPUT);
-pinMode(bLED,OUTPUT);
 
-//digitalWrite(gLED,HIGH);
-
-Serial.begin(57600);
+Serial.begin(4800);
 Udp.begin(1337);
-mySerial.begin(4800);
-
+//mySerial.begin(4800);
+wg.begin();
 Serial.print("Begin");
+
 
 
 
@@ -125,20 +78,98 @@ Serial.print("Begin");
 
 void  loop() 
              {
-             
+      
      checkNFCserial();
-          
+     checkRFID();
           
              }
 
-          
+
+boolean checkRFID()
+{
+  
+    	if(wg.available())
+	{  
+  
+   checksum = char(00);
+
+   
+    RFID_packetIncrementor = 0;     
+    packet[RFID_packetIncrementor++] = '@'; 
+    packet[RFID_packetIncrementor++] = '$'; 
+    packet[RFID_packetIncrementor++] = '_';
+    packet[RFID_packetIncrementor++] = '_';  
+    packet[RFID_packetIncrementor++] = ',';    
+    packet[RFID_packetIncrementor++] = '-'; 
+    packet[RFID_packetIncrementor++] = '-'; 
+    packet[RFID_packetIncrementor++] = '-'; 
+    packet[RFID_packetIncrementor++] = '-'; 
+    packet[RFID_packetIncrementor++] = ',';
+    
+    //runningTime = String(millis(), HEX);
+    
+    
+   //Adds millis() to packet
+    millisHex(runningTime);
+    for(i=7 ;i>=0 ; i--)
+     packet[RFID_packetIncrementor++] = runningTime[i];
+     
+
+    //Placeholder for 2nd millis()
+    packet[RFID_packetIncrementor++] = ',';
+    for(i = 0; i<8 ;i++)
+     packet[RFID_packetIncrementor++] = '-';
+    packet[RFID_packetIncrementor++] = ','; 
+     
+    
+    for (i=0; i < (8- 3); i++) 
+    {
+          packet[RFID_packetIncrementor++] = '_'; 
+          packet[RFID_packetIncrementor++] = '_'; 
+    }
+
+   RFID_Hex(RFID_HexArray, wg.getCode());    
+    for(i=5 ;i>=0 ; i--)
+     packet[RFID_packetIncrementor++] = RFID_HexArray[i];
+
+    
+    packet[RFID_packetIncrementor++] = ',';
+    
+    for(i=0;i<RFID_packetIncrementor;i++)
+     checksum = checksum ^ packet[i];
+         
+    packet[RFID_packetIncrementor++] = upperNibbleHex(int(checksum));
+    packet[RFID_packetIncrementor++] = lowerNibbleHex(int(checksum));
+    packet[RFID_packetIncrementor++] = '*';
+
+    
+   for(i=0;i< RFID_packetIncrementor;i++)
+    {
+     Serial.print(packet[i]);
+     //mySerial.print(packet[i]);      
+    }
+    
+    Serial.println("");
+//mySerial.println("");
+    Udp.beginPacket(sendToip, 1337);
+    Udp.print(packet);
+    Udp.endPacket();
+    
+    digitalWrite(13,HIGH);
+    delay(1000);
+    digitalWrite(13,LOW);
+  }
+  
+}
+  
+   
 
    boolean checkNFCserial()
 {   
       
-         while (mySerial.available())
+         while (Serial.available())
         {
-         buffer = mySerial.read();
+         buffer = Serial.read();
          
          if (buffer == '@')
          {
@@ -177,20 +208,114 @@ void  loop()
       
       
       
-               
-               
-	
-   /* Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    Udp.write("@#");
-    Udp.endPacket();
+ 
+  void millisHex(char charArray[])
+ {
+ uint32_t currentMillis = millis();  
+ uint32_t value;
+ //Serial.println(currentMillis);
+ for(i=0;i<8;i=i+2)
+ {
+  value = currentMillis & 0x000000FF;
+  charArray[i+1] = upperNibbleHex(int(value)); 
+  charArray[i] = lowerNibbleHex(int(value));
+  currentMillis = currentMillis >> 8; 
+  //Serial.println(int(value));
+ }
+}
 
-    uint32_t i;
-    uint32_t b;
-*/
-  
-  
 
+ void RFID_Hex(char charArray[],unsigned long RFID_DEC)
+ {
+ uint32_t RFID = RFID_DEC;  
+ uint32_t value;
+ //Serial.println(currentMillis);
+ for(i=0;i<8;i=i+2)
+ {
+  value = RFID & 0x000000FF;
+  charArray[i+1] = upperNibbleHex(int(value)); 
+  charArray[i] = lowerNibbleHex(int(value));
+  RFID = RFID >> 8; 
+  //Serial.println(int(value));
+ }
+}
 
+ 
+ char upperNibbleHex(int byteValue)
+ {
+ byte value = byte(byteValue);  
+ value = value & 0xF0;
+ value = value >> 4;  
+ return returnNibbleHex( int(value) );  
+ }
+ 
+ 
+ char lowerNibbleHex(int byteValue)
+ {
+  return returnNibbleHex(byteValue);  
+ }
+ 
+ char returnNibbleHex(int byteValue)
+ {
+ byte value = byte(byteValue);  
+ value = value & 0x0F;
+ 
+ char hexChar = '!';
+ //Serial.print(value);  
+ switch(value)
+  {
+   case 0:
+    hexChar = '0'; 
+    break;    
+   case 1:
+    hexChar = '1';
+    break;    
+   case 2:
+    hexChar = '2';
+    break;    
+   case 3:
+    hexChar = '3';
+    break;    
+   case 4:
+    hexChar = '4';
+    break;    
+   case 5:
+    hexChar = '5';
+    break;    
+   case 6:
+    hexChar = '6';
+    break;
+   case 7:
+    hexChar = '7';
+    break;
+   case 8:
+    hexChar = '8';
+    break;
+   case 9:
+    hexChar = '9';
+    break;    
+   case 10:
+    hexChar = 'A';
+    break;    
+   case 11:
+    hexChar = 'B';
+    break;    
+   case 12:
+    hexChar = 'C';
+    break;    
+   case 13:
+    hexChar = 'D';
+    break;    
+   case 14:
+    hexChar = 'E';
+    break;    
+   case 15:
+    hexChar = 'F';
+    break;    
+  }
+  //Serial.println(hexChar);   
+ return hexChar;  
+ } 
 
 
 
