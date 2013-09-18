@@ -17,8 +17,8 @@ WIEGAND wg;
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x5F, 0x5F };  
 //the IP address for the shield:
 byte ip[] = { 192, 168, 1, 233 }; 
-byte sendToip[] = { 192, 168, 1, 105 };
-byte server[] = { 192,168,1,105 };
+byte sendToip[] = { 192, 168, 1, 230 };
+byte server[] = { 192,168,1,230 };
 
 
 int brightness = 0;    // how bright the LED is
@@ -65,7 +65,7 @@ pinMode(5,INPUT);
 
 
 
-Serial.begin(4800);
+Serial.begin(57600);
 Udp.begin(1337);
 //mySerial.begin(4800);
 wg.begin();
@@ -80,7 +80,7 @@ void  loop()
              {
       
      checkNFCserial();
-     checkRFID();
+   //  checkRFID();
           
              }
 
@@ -143,17 +143,20 @@ boolean checkRFID()
     packet[RFID_packetIncrementor++] = '*';
 
     
-   for(i=0;i< RFID_packetIncrementor;i++)
+
+    Udp.beginPacket(sendToip, 1337);
+    Udp.print(packet);
+    Udp.endPacket();
+    
+       for(i=0;i< RFID_packetIncrementor;i++)
     {
      Serial.print(packet[i]);
-     //mySerial.print(packet[i]);      
+     packet[i] = char(0);
     }
     
     Serial.println("");
 //mySerial.println("");
-    Udp.beginPacket(sendToip, 1337);
-    Udp.print(packet);
-    Udp.endPacket();
+    
     
     digitalWrite(13,HIGH);
     delay(1000);
@@ -194,8 +197,14 @@ boolean checkRFID()
              
            }
          
-           NFC_Incrementor = 0; 
-         }          
+           NFC_Incrementor = 0;
+           digitalWrite(13,HIGH);
+           delay(1000);
+           digitalWrite(13,LOW);
+         }
+          
+           
+                   
           
          else if (NFC_Incrementor > 0 && NFC_Incrementor <48)
           NFC_packet[NFC_Incrementor++] = buffer;
