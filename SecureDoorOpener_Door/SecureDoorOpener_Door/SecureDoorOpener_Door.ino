@@ -158,16 +158,70 @@ void loop() {
 
 int compareUID_SD(char* UID_STR, int length)
 {
-  
-  
+int charCount = 0;  
+int currentRecord = -1;
+if (length > 16 || length < 1)
+ return currentRecord;
+ 
+char read_UID[16];
 File NFC_File;
+char buffer;
   
  if( SD.exists("NFC.txt") )
  {
- NFC_File = SD.open("NFC.txt", FILE_READ);
-  
-     while (NFC_File.available()) {
-        Serial.write(NFC_File.read()); 
+   NFC_File = SD.open("NFC.txt", FILE_READ);
+   currentRecord = 0;
+   charCount = 0; 
+     
+     while (NFC_File.available()) 
+     {
+       buffer = (char)NFC_File.read();
+       if( (buffer == 13 || buffer == 10) && charCount != 0)
+        {
+         if (charCount == length)
+         {
+          Serial.print("Record #");
+          Serial.print(currentRecord);
+          Serial.println(" matches length.");
+          }
+         else
+         {
+          /*
+          Serial.print("charCount: ");
+          Serial.println(charCount);
+          Serial.print("Record #");
+          Serial.println(currentRecord); 
+          for (int i = 0; i<charCount;i++)
+           Serial.print(read_UID[i]);
+          Serial.println(""); */
+          
+         }
+          
+         charCount = 0;
+        }
+       
+       else if (charCount == 0 && (buffer != 13 && buffer != 10))
+       {
+        currentRecord++;
+        read_UID[charCount++] = buffer;     
+        /*Serial.print(charCount);
+        Serial.print(" ");
+        Serial.println(int(buffer));   
+        */
+       }
+       
+       else if (charCount < 16 && (buffer != 13 && buffer != 10) )
+       {
+        read_UID[charCount++] = buffer;
+        /*Serial.print(charCount);
+        Serial.print(" ");
+        Serial.println(int(buffer));*/
+       }
+       
+       
+       
+       
+       // Serial.write(); 
      }
   
  NFC_File.close();
@@ -175,7 +229,7 @@ File NFC_File;
  
  }
  else
-  return -1;
+  return currentRecord;
 }
 
 struct badge parseData(char* inPacket, int length)
