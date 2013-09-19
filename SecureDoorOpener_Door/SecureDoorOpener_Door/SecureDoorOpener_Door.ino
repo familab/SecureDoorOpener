@@ -20,6 +20,7 @@
 #include <Wiegand.h>
 
 #define PACKET_LENGTH 100
+#define DOOR_LOCK_PIN 13
 
  struct badge
  {
@@ -36,8 +37,8 @@
  };
  
 
-long SD_Record_Num = 0;
-int unlockDoor = 0;
+long Record_Num = 0;
+int unlockDoorFlag = 0;
 WIEGAND wg;
 struct badge key;
 struct badge RFID_key;
@@ -48,6 +49,7 @@ char RFID_packet[48];
 char tempMillis[8] = {0};
 char twoByteStr[4] = {0};
 char RFID_HexArray[8];
+int  packetSize = 0;
 
 
 // Enter a MAC address and IP address for your controller below.
@@ -79,7 +81,7 @@ void setup() {
   Udp.begin(localPort);
   Serial.begin(57600);
   wg.begin();
-  
+  pinMode(DOOR_LOCK_PIN, OUTPUT); 
   RFID_key.isValid = false;
   
   pinMode(10, OUTPUT);    
@@ -107,7 +109,7 @@ void loop() {
   int j = 0;
   
   // if there's data available, read a packet
-  int packetSize = Udp.parsePacket();
+  packetSize = Udp.parsePacket();
   if(packetSize)
   {
      // read the packet into packetBufffer
@@ -149,12 +151,29 @@ void loop() {
      RFID_key.ID_Length = 6;
      RFID_key.isValid = true; 
      
+     
+     Record_Num = compareUID_SD(&RFID_HexArray[2],RFID_key.ID_Length,RFID_key.badgeType);
+      if (Record_Num > 0)
+      {
+       RFID_key.Attribute_1[0] = '2';
+       twoByteHex(twoByteStr,(uint16_t)Record_Num);
+       for (i=0;i<4;i++)
+        RFID_key.Attribute_2[i] = twoByteStr[i];
+        unlockDoorFlag = 1;
+      }
+     
      generatePacket(RFID_packet,RFID_key);
      for (i=0;i<48;i++)
       Serial.print(RFID_packet[i]);
      Serial.println("");
      
-  
+     if (unlockDoorFlag)
+     {
+      unlockDoor(RFID_key);
+      if(wg.available())
+       wg.getCode();
+      unlockDoorFlag = 0;
+     }
   
    }
   
@@ -171,27 +190,32 @@ void loop() {
       key.Attribute_1[0] = '0';
       key.Attribute_1[1] = '?';
 
-      SD_Record_Num = compareUID_SD(UID_Card,key.ID_Length);
-      if (SD_Record_Num > 0)
+      Record_Num = compareUID_SD(UID_Card,key.ID_Length,key.badgeType);
+      if (Record_Num > 0)
       {
        key.Attribute_1[0] = '2';
-       
-       twoByteHex(twoByteStr,(uint16_t)SD_Record_Num);
+       twoByteHex(twoByteStr,(uint16_t)Record_Num);
        for (i=0;i<4;i++)
         key.Attribute_2[i] = twoByteStr[i];
-       
-       unlockDoor = 1; 
-       generatePacket(NFC_packet,key);
-       for (i=0;i<48;i++)
-        Serial.print(NFC_packet[i]);
-       Serial.println("");
-       unlockDoor = 0;
-       key.isValid = 0;
-       
-       delay(1);
+       unlockDoorFlag = 1;
       }
       
+      generatePacket(NFC_packet,key);
+      for (i=0;i<48;i++)
+       Serial.print(NFC_packet[i]);
+      Serial.println("");
+      key.isValid = 0;
       
+      
+      
+      if (unlockDoorFlag)
+      {
+      unlockDoor(key);
+      packetSize = Udp.parsePacket();
+      if(packetSize)
+       Udp.read(packetBuffer,PACKET_LENGTH); //clear buffer
+      unlockDoorFlag = 0;
+     }
      }
   
    
@@ -200,7 +224,31 @@ void loop() {
 
 
 
+void unlockDoor(struct badge newKey)
+{
+char newPacket[48] = {0};
+int i = 0;
 
+newKey.Attribute_1[1] = '.';
+generatePacket(newPacket,newKey); 
+
+for (i=0;i<48;i++)
+ Serial.print(newPacket[i]);
+Serial.println("");
+
+digitalWrite(DOOR_LOCK_PIN,HIGH);  
+
+delay(6000);  
+
+digitalWrite(DOOR_LOCK_PIN,LOW);  
+newKey.Attribute_1[1] = ':';
+generatePacket(newPacket,newKey);  
+
+for (i=0;i<48;i++)
+ Serial.print(newPacket[i]);
+Serial.println("");
+  
+}
 
 
 
@@ -269,9 +317,19 @@ newPacket[packetIncrementor++] = '*';
 
 
 
-long compareUID_SD(char* UID_STR, int length)
+long compareUID_SD(char* UID_STR, int length, char badgeType)
 {
   int i = 0;
+  
+char fileName[15] = {0};
+
+if (badgeType == '#') //NFC
+ strcpy(fileName, "NFC.txt");
+else if (badgeType == '$') //RFID
+ strcpy(fileName, "RFID.txt"); 
+else
+ return -1;
+ 
 int charCount = 0;  
 long currentRecord = -1;
 if (length > 16 || length < 1)
@@ -282,9 +340,9 @@ File NFC_File;
 char buffer;
 
   
- if( SD.exists("NFC.txt") )
+ if( SD.exists(fileName) )
  {
-   NFC_File = SD.open("NFC.txt", FILE_READ);
+   NFC_File = SD.open(fileName, FILE_READ);
    currentRecord = 0;
    charCount = 0; 
      
@@ -297,7 +355,8 @@ char buffer;
          if (charCount == length)
          {
            for (i=0; i<length;i++)
-            if (UID_STR[i] != read_UID[i])
+            if (read_UID[i] == '?' && i<2 && badgeType == '$'); //Wildcard for RFID Site Code           
+            else if (UID_STR[i] != read_UID[i])
              i = length;
             else if (i == length-1)
             {
