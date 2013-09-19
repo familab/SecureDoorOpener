@@ -17,11 +17,9 @@
 #include <SD.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>         // UDP library from: bjoern@cs.stanford.edu 12/30/2008
+#include <Wiegand.h>
 
 #define PACKET_LENGTH 100
-long SD_Record_Num = 0;
-int unlockDoor = 0;
-
 
  struct badge
  {
@@ -36,37 +34,54 @@ int unlockDoor = 0;
  char checksum[3];
  boolean isValid;   
  };
+ 
 
+long SD_Record_Num = 0;
+int unlockDoor = 0;
+WIEGAND wg;
+struct badge key;
+struct badge RFID_key;
 
 char UID_Card[17];
-//int i = 0;
-struct badge key;
 char NFC_packet[48];
+char RFID_packet[48];
 char tempMillis[8] = {0};
+char twoByteStr[4] = {0};
+char RFID_HexArray[8];
+
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = {  
   0xDE, 0x2D, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress ip(192, 168, 1, 230);
-
 unsigned int localPort = 1337;      // local port to listen on
 
 // buffers for receiving and sending data
 char packetBuffer[PACKET_LENGTH]; //buffer to hold incoming packet,
-char packetBuffer2[PACKET_LENGTH]; //buffer to hold incoming packet,
+//char packetBuffer2[PACKET_LENGTH]; //buffer to hold incoming packet,
 
 char  ReplyBuffer[] = "acknowledged";       // a string to send back
 
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
 
+
+
+
+
+
+
+
 void setup() {
   // start the Ethernet and UDP:
   Ethernet.begin(mac,ip);
   Udp.begin(localPort);
-
   Serial.begin(57600);
+  wg.begin();
+  
+  RFID_key.isValid = false;
+  
   pinMode(10, OUTPUT);    
   
   Serial.print("Initializing SD card...");
@@ -86,8 +101,6 @@ void setup() {
 
 }
 
-char twoByteStr[4] = {0};
-
 void loop() {
   
   int i = 0;
@@ -105,7 +118,45 @@ void loop() {
 
   }
   
+  if(wg.available())
+   {  
+     RFID_key.MsgType = '@';
+     RFID_key.badgeType = '$';
+     
+     RFID_key.Attribute_1[0] = '0';
+     RFID_key.Attribute_1[1] = '?';
+     
+     for(i = 0; i<4 ;i++)
+      RFID_key.Attribute_2[i] = '-';
+      
+     for(i = 0; i<4; i++)
+      RFID_key.Attribute_2[i] = '-';
+      
+     for(i = 0; i<8; i++)
+      RFID_key.time_1[i] = '-';
+      
+      millisHex(tempMillis);
+       for (i=0;i<8;i++)
+        RFID_key.time_2[i] = tempMillis[i];
+          
+     for (i=0; i < 10; i++) 
+      RFID_key.ID[i] = '_'; 
+      
+     RFID_Hex(RFID_HexArray, wg.getCode());    
+     for(i=2 ;i<8 ; i++)
+      RFID_key.ID[i+8] = RFID_HexArray[i];
+      
+     RFID_key.ID_Length = 6;
+     RFID_key.isValid = true; 
+     
+     generatePacket(RFID_packet,RFID_key);
+     for (i=0;i<48;i++)
+      Serial.print(RFID_packet[i]);
+     Serial.println("");
+     
   
+  
+   }
   
   
       if(key.isValid)
@@ -388,6 +439,23 @@ void twoByteHex(char charArray[], uint16_t twoBytes)
  }
 }
 
+
+
+void RFID_Hex(char charArray[],unsigned long RFID_DEC)
+ {
+ int i;
+ uint32_t RFID = RFID_DEC;  
+ uint32_t value;
+ //Serial.println(currentMillis);
+ for(i=7;i>=0;i=i-2)
+ {
+  value = RFID & 0x000000FF;
+  charArray[i-1] = upperNibbleHex(int(value)); 
+  charArray[i] = lowerNibbleHex(int(value));
+  RFID = RFID >> 8; 
+  //Serial.println(int(value));
+ }
+}
 
 
 
