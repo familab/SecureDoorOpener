@@ -20,7 +20,7 @@
 #include <Wiegand.h>
 
 #define PACKET_LENGTH 100
-#define DOOR_LOCK_PIN 13
+#define DOOR_LOCK_PIN 9
 
  struct badge
  {
