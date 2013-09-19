@@ -39,9 +39,10 @@ int unlockDoor = 0;
 
 
 char UID_Card[17];
-int i = 0;
+//int i = 0;
 struct badge key;
 char NFC_packet[48];
+char tempMillis[8] = {0};
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
@@ -92,8 +93,6 @@ void loop() {
   int i = 0;
   int j = 0;
   
-  
-  
   // if there's data available, read a packet
   int packetSize = Udp.parsePacket();
   if(packetSize)
@@ -101,17 +100,25 @@ void loop() {
      // read the packet into packetBufffer
     Udp.read(packetBuffer,PACKET_LENGTH);
     key = parseData(packetBuffer, packetSize);
-    
-    if(key.isValid)
-     {
-       //Serial.println(packetBuffer);
-       
-       
-      for (i=(16-key.ID_Length),j=0; i<16; i++)
-       UID_Card[j++] = key.ID[i];
+    for(int i=0;i<100;i++) 
+     packetBuffer[i] = 0;
 
-       key.Attribute_1[0] = '0';
-       key.Attribute_1[1] = '?';
+  }
+  
+  
+  
+  
+      if(key.isValid)
+     {
+       for (i=(16-key.ID_Length),j=0; i<16; i++)
+        UID_Card[j++] = key.ID[i];
+       
+       millisHex(tempMillis);
+       for (i=0;i<8;i++)
+        key.time_2[i] = tempMillis[i];
+      
+      key.Attribute_1[0] = '0';
+      key.Attribute_1[1] = '?';
 
       SD_Record_Num = compareUID_SD(UID_Card,key.ID_Length);
       if (SD_Record_Num > 0)
@@ -128,24 +135,15 @@ void loop() {
         Serial.print(NFC_packet[i]);
        Serial.println("");
        unlockDoor = 0;
+       key.isValid = 0;
+       
+       delay(1);
       }
       
       
      }
-    else
-    {
-     Serial.println("Error");
-    }
-
-    // send a reply, to the IP address and port that sent us the packet we received
-    //Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    //Udp.write(ReplyBuffer);
-    //Udp.endPacket();
-    for(int i=0;i<100;i++) 
-     packetBuffer[i] = 0;
-
-  }
-  delay(1);
+  
+   
 }
 
 
@@ -211,24 +209,11 @@ newPacket[packetIncrementor++] = scan.ID[15];
 newPacket[packetIncrementor++] = ',';
 
 for (i = 0; i< packetIncrementor;i++)
- checksum ^ newPacket[packetIncrementor];
+ checksum = checksum ^ newPacket[i];
 
 newPacket[packetIncrementor++] = upperNibbleHex(checksum);
 newPacket[packetIncrementor++] = lowerNibbleHex(checksum);
 newPacket[packetIncrementor++] = '*';
-
-  
-/*   char MsgType;
- char badgeType;
- char Attribute_1[3];
- char Attribute_2[5];
- char time_1[9];  
- char time_2[9];
- char ID[17];
- int  ID_Length;
- char checksum[3];
- boolean isValid;   */
-  
 }
 
 
@@ -264,8 +249,10 @@ char buffer;
             if (UID_STR[i] != read_UID[i])
              i = length;
             else if (i == length-1)
+            {
+             NFC_File.close(); 
              return currentRecord;
-            
+            }
           }
          
          charCount = 0;
@@ -387,13 +374,14 @@ return scan;
 
 void twoByteHex(char charArray[], uint16_t twoBytes)
  {
+   int i =0;
  uint16_t currentTwoByte = twoBytes;  
  uint16_t value;
 
- for(i=0;i<4;i=i+2)
+ for(i=3;i>=0;i=i-2)
  {
   value = currentTwoByte & 0x00FF;
-  charArray[i+1] = upperNibbleHex(int(value)); 
+  charArray[i-1] = upperNibbleHex(int(value)); 
   charArray[i] = lowerNibbleHex(int(value));
   currentTwoByte = currentTwoByte >> 8; 
   //Serial.println(int(value));
@@ -405,13 +393,14 @@ void twoByteHex(char charArray[], uint16_t twoBytes)
 
 void millisHex(char charArray[])
  {
+   int i = 0;
  uint32_t currentMillis = millis();  
  uint32_t value;
  //Serial.println(currentMillis);
- for(i=0;i<8;i=i+2)
+ for(i=7;i>=0;i=i-2)
  {
   value = currentMillis & 0x000000FF;
-  charArray[i+1] = upperNibbleHex(int(value)); 
+  charArray[i-1] = upperNibbleHex(int(value)); 
   charArray[i] = lowerNibbleHex(int(value));
   currentMillis = currentMillis >> 8; 
   //Serial.println(int(value));
