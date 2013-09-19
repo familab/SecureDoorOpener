@@ -82,6 +82,9 @@ void setup() {
   Serial.begin(57600);
   wg.begin();
   pinMode(DOOR_LOCK_PIN, OUTPUT); 
+    digitalWrite(DOOR_LOCK_PIN,HIGH); //Opens door for a second on reset 
+    delay(1000);  
+    digitalWrite(DOOR_LOCK_PIN,LOW);  
   RFID_key.isValid = false;
   
   pinMode(10, OUTPUT);    
