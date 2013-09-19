@@ -19,6 +19,8 @@
 #include <EthernetUdp.h>         // UDP library from: bjoern@cs.stanford.edu 12/30/2008
 
 #define PACKET_LENGTH 100
+long SD_Record_Num = 0;
+int unlockDoor = 0;
 
 
  struct badge
@@ -39,6 +41,7 @@
 char UID_Card[17];
 int i = 0;
 struct badge key;
+char NFC_packet[48];
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
@@ -82,62 +85,52 @@ void setup() {
 
 }
 
+char twoByteStr[4] = {0};
+
 void loop() {
   
   int i = 0;
   int j = 0;
+  
+  
+  
   // if there's data available, read a packet
   int packetSize = Udp.parsePacket();
   if(packetSize)
   {
-    /*
-    Serial.print("Received packet of size ");
-    Serial.println(packetSize);
-    Serial.print("From ");
-    IPAddress remote = Udp.remoteIP();
-    for (int i =0; i < 4; i++)
-    {
-      Serial.print(remote[i], DEC);
-      if (i < 3)
-      {
-        Serial.print(".");
-      }
-    }
-    Serial.print(", port ");
-    Serial.println(Udp.remotePort());*/
-
-    // read the packet into packetBufffer
+     // read the packet into packetBufffer
     Udp.read(packetBuffer,PACKET_LENGTH);
     key = parseData(packetBuffer, packetSize);
     
     if(key.isValid)
      {
-
-    Serial.print("UID Length: ");
-    Serial.println(key.ID_Length); 
-    
-    Serial.print("UID: ");
-    j = 0;
-    for (i = (16 - key.ID_Length) ; i<16; i++)
-    {
-     Serial.print(key.ID[i]);
-     UID_Card[j++] = key.ID[i];
-    } 
-    Serial.println(""); 
-    
-    compareUID_SD(UID_Card,key.ID_Length);
-     
-    Serial.print("Attribute 1: ");
-    Serial.println(key.Attribute_1);
-    Serial.print("Attribute 2: ");
-    Serial.println(key.Attribute_2);
-    Serial.print("Time 1: ");
-    Serial.println(key.time_1);
-    Serial.print("Time2: ");
-    Serial.println(key.time_2);
-    Serial.print("Checksum: ");
-    Serial.println(key.checksum);
+       //Serial.println(packetBuffer);
        
+       
+      for (i=(16-key.ID_Length),j=0; i<16; i++)
+       UID_Card[j++] = key.ID[i];
+
+       key.Attribute_1[0] = '0';
+       key.Attribute_1[1] = '?';
+
+      SD_Record_Num = compareUID_SD(UID_Card,key.ID_Length);
+      if (SD_Record_Num > 0)
+      {
+       key.Attribute_1[0] = '2';
+       
+       twoByteHex(twoByteStr,(uint16_t)SD_Record_Num);
+       for (i=0;i<4;i++)
+        key.Attribute_2[i] = twoByteStr[i];
+       
+       unlockDoor = 1; 
+       generatePacket(NFC_packet,key);
+       for (i=0;i<48;i++)
+        Serial.print(NFC_packet[i]);
+       Serial.println("");
+       unlockDoor = 0;
+      }
+      
+      
      }
     else
     {
@@ -156,16 +149,102 @@ void loop() {
 }
 
 
-int compareUID_SD(char* UID_STR, int length)
+
+
+
+
+
+
+
+
+
+void generatePacket(char* newPacket,struct badge scan)
 {
+int packetIncrementor = 0;
+int i = 0;
+char checksum = 0;
+
+newPacket[packetIncrementor++] = scan.MsgType;
+newPacket[packetIncrementor++] = scan.badgeType;
+newPacket[packetIncrementor++] = scan.Attribute_1[0];
+newPacket[packetIncrementor++] = scan.Attribute_1[1];
+newPacket[packetIncrementor++] = ',';
+newPacket[packetIncrementor++] = scan.Attribute_2[0];
+newPacket[packetIncrementor++] = scan.Attribute_2[1];
+newPacket[packetIncrementor++] = scan.Attribute_2[2];
+newPacket[packetIncrementor++] = scan.Attribute_2[3];
+newPacket[packetIncrementor++] = ',';
+newPacket[packetIncrementor++] = scan.time_1[0];
+newPacket[packetIncrementor++] = scan.time_1[1];
+newPacket[packetIncrementor++] = scan.time_1[2];
+newPacket[packetIncrementor++] = scan.time_1[3];
+newPacket[packetIncrementor++] = scan.time_1[4];
+newPacket[packetIncrementor++] = scan.time_1[5];
+newPacket[packetIncrementor++] = scan.time_1[6];
+newPacket[packetIncrementor++] = scan.time_1[7];
+newPacket[packetIncrementor++] = ',';
+newPacket[packetIncrementor++] = scan.time_2[0];
+newPacket[packetIncrementor++] = scan.time_2[1];
+newPacket[packetIncrementor++] = scan.time_2[2];
+newPacket[packetIncrementor++] = scan.time_2[3];
+newPacket[packetIncrementor++] = scan.time_2[4];
+newPacket[packetIncrementor++] = scan.time_2[5];
+newPacket[packetIncrementor++] = scan.time_2[6];
+newPacket[packetIncrementor++] = scan.time_2[7];
+newPacket[packetIncrementor++] = ',';
+newPacket[packetIncrementor++] = scan.ID[0];
+newPacket[packetIncrementor++] = scan.ID[1];
+newPacket[packetIncrementor++] = scan.ID[2];
+newPacket[packetIncrementor++] = scan.ID[3];
+newPacket[packetIncrementor++] = scan.ID[4];
+newPacket[packetIncrementor++] = scan.ID[5];
+newPacket[packetIncrementor++] = scan.ID[6];
+newPacket[packetIncrementor++] = scan.ID[7];
+newPacket[packetIncrementor++] = scan.ID[8];
+newPacket[packetIncrementor++] = scan.ID[9];
+newPacket[packetIncrementor++] = scan.ID[10];
+newPacket[packetIncrementor++] = scan.ID[11];
+newPacket[packetIncrementor++] = scan.ID[12];
+newPacket[packetIncrementor++] = scan.ID[13];
+newPacket[packetIncrementor++] = scan.ID[14];
+newPacket[packetIncrementor++] = scan.ID[15];
+newPacket[packetIncrementor++] = ',';
+
+for (i = 0; i< packetIncrementor;i++)
+ checksum ^ newPacket[packetIncrementor];
+
+newPacket[packetIncrementor++] = upperNibbleHex(checksum);
+newPacket[packetIncrementor++] = lowerNibbleHex(checksum);
+newPacket[packetIncrementor++] = '*';
+
+  
+/*   char MsgType;
+ char badgeType;
+ char Attribute_1[3];
+ char Attribute_2[5];
+ char time_1[9];  
+ char time_2[9];
+ char ID[17];
+ int  ID_Length;
+ char checksum[3];
+ boolean isValid;   */
+  
+}
+
+
+
+long compareUID_SD(char* UID_STR, int length)
+{
+  int i = 0;
 int charCount = 0;  
-int currentRecord = -1;
+long currentRecord = -1;
 if (length > 16 || length < 1)
  return currentRecord;
  
 char read_UID[16];
 File NFC_File;
 char buffer;
+
   
  if( SD.exists("NFC.txt") )
  {
@@ -176,27 +255,19 @@ char buffer;
      while (NFC_File.available()) 
      {
        buffer = (char)NFC_File.read();
+       //Serial.print(buffer);
        if( (buffer == 13 || buffer == 10) && charCount != 0)
         {
          if (charCount == length)
          {
-          Serial.print("Record #");
-          Serial.print(currentRecord);
-          Serial.println(" matches length.");
+           for (i=0; i<length;i++)
+            if (UID_STR[i] != read_UID[i])
+             i = length;
+            else if (i == length-1)
+             return currentRecord;
+            
           }
-         else
-         {
-          /*
-          Serial.print("charCount: ");
-          Serial.println(charCount);
-          Serial.print("Record #");
-          Serial.println(currentRecord); 
-          for (int i = 0; i<charCount;i++)
-           Serial.print(read_UID[i]);
-          Serial.println(""); */
-          
-         }
-          
+         
          charCount = 0;
         }
        
@@ -204,24 +275,10 @@ char buffer;
        {
         currentRecord++;
         read_UID[charCount++] = buffer;     
-        /*Serial.print(charCount);
-        Serial.print(" ");
-        Serial.println(int(buffer));   
-        */
        }
        
        else if (charCount < 16 && (buffer != 13 && buffer != 10) )
-       {
         read_UID[charCount++] = buffer;
-        /*Serial.print(charCount);
-        Serial.print(" ");
-        Serial.println(int(buffer));*/
-       }
-       
-       
-       
-       
-       // Serial.write(); 
      }
   
  NFC_File.close();
@@ -229,7 +286,9 @@ char buffer;
  
  }
  else
-  return currentRecord;
+  return -1;
+  
+  return 0;
 }
 
 struct badge parseData(char* inPacket, int length)
@@ -311,20 +370,13 @@ for (i=0;i<length;i++)
            NFC_Incrementor = 0;
 
          }
-          
-                           
-          
+     
          else if (NFC_Incrementor > 0 && NFC_Incrementor <48)
           NFC_packet[NFC_Incrementor++] = buffer;
           
          else
            NFC_Incrementor = 0;         
-         
-   
-   
 
-  
-  
   
  } 
   
@@ -332,6 +384,21 @@ for (i=0;i<length;i++)
 return scan;  
 }
 
+
+void twoByteHex(char charArray[], uint16_t twoBytes)
+ {
+ uint16_t currentTwoByte = twoBytes;  
+ uint16_t value;
+
+ for(i=0;i<4;i=i+2)
+ {
+  value = currentTwoByte & 0x00FF;
+  charArray[i+1] = upperNibbleHex(int(value)); 
+  charArray[i] = lowerNibbleHex(int(value));
+  currentTwoByte = currentTwoByte >> 8; 
+  //Serial.println(int(value));
+ }
+}
 
 
 
