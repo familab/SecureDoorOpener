@@ -230,6 +230,9 @@ char newPacket[48] = {0};
 int i = 0;
 
 newKey.Attribute_1[1] = '.';
+millisHex(tempMillis);
+for (i=0;i<8;i++)
+ newKey.time_2[i] = tempMillis[i];
 generatePacket(newPacket,newKey); 
 
 for (i=0;i<48;i++)
@@ -242,6 +245,9 @@ delay(6000);
 
 digitalWrite(DOOR_LOCK_PIN,LOW);  
 newKey.Attribute_1[1] = ':';
+millisHex(tempMillis);
+for (i=0;i<8;i++)
+ newKey.time_2[i] = tempMillis[i];
 generatePacket(newPacket,newKey);  
 
 for (i=0;i<48;i++)
