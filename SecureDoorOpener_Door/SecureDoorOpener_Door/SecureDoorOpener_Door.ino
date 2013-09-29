@@ -12,7 +12,7 @@
  This code is in the public domain.
  */
 
-
+//Thanks for coming
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <SD.h>
 #include <Ethernet.h>
@@ -51,9 +51,12 @@ char twoByteStr[4] = {0};
 char RFID_HexArray[8];
 int  packetSize = 0;
 
+uint32_t startTime = 0;
+uint32_t endTime   = 0;
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
+//Thanks for coming
 byte mac[] = {  
   0xDE, 0x2D, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress ip(192, 168, 1, 230);
@@ -74,7 +77,7 @@ EthernetUDP Udp;
 
 
 
-
+//Thanks for coming
 void setup() {
   // start the Ethernet and UDP:
   Ethernet.begin(mac,ip);
@@ -106,10 +109,12 @@ void setup() {
 
 }
 
+//Thanks for coming multiple times
 void loop() {
   
   int i = 0;
   int j = 0;
+  char buffer = 0;
   
   // if there's data available, read a packet
   packetSize = Udp.parsePacket();
@@ -169,9 +174,12 @@ void loop() {
        key.Attribute_1[0] = '2';
        twoByteHex(twoByteStr,(uint16_t)Record_Num);
        for (i=0;i<4;i++)
-        key.Attribute_2[i] = twoByteStr[i];
+        key.Attribute_2[i] = twoByteStr[i];     
+     
        unlockDoorFlag = 1;
       }
+      
+      
       
       generatePacket(NFC_packet,key);
       for (i=0;i<48;i++)
@@ -179,7 +187,34 @@ void loop() {
       Serial.println("");
       key.isValid = 0;
       
-      
+      while(Serial.available());//clear any existing serial buffer 
+      startTime = millis();
+      while( (millis() - startTime) < 1500 )
+       {
+        while( Serial.available() )
+         {
+          buffer = Serial.read();          
+          if (buffer == 'A')
+           {
+            key.Attribute_1[0] = '4';
+            key.Attribute_1[1] = '_';       
+            for (i=0;i<4;i++)
+             key.Attribute_2[i] = '_';
+            unlockDoorFlag = 1;
+            break;
+           }
+          //iShortBus wants the D
+          else if (buffer == 'D')
+           {
+            key.Attribute_1[0] = '4';
+            key.Attribute_1[1] = '=';       
+            for (i=0;i<4;i++)
+             key.Attribute_2[i] = '_';
+            unlockDoorFlag = 0;
+            break;
+           }            
+         }         
+       }
       
       if (unlockDoorFlag)
       {
