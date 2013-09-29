@@ -211,6 +211,10 @@ void loop() {
             for (i=0;i<4;i++)
              key.Attribute_2[i] = '_';
             unlockDoorFlag = 0;
+            
+            generatePacket(NFC_packet,key);
+            for (i=0;i<48;i++)
+             Serial.print(NFC_packet[i]);
             break;
            }            
          }         

@@ -28,15 +28,6 @@ unsigned long previousTime = millis();
   String checksumStr;
   char checksumStr_buf[3];
 
- 
-
-
-
-
-int rLED = 9;
-int gLED = 10;
-int bLED = 11;
-
 int buffer = 0;
 
 int i = 0;
@@ -60,7 +51,7 @@ void setup(void)
  //  mySerial.begin(9600);
  nfc.begin();
  uint32_t versiondata = nfc.getFirmwareVersion();
- mySerial.begin(4800);
+ //mySerial.begin(4800);
  if (! versiondata) {
    Serial.print("Didn't find PN53x board");
    while (1); // halt
@@ -112,7 +103,7 @@ void  loop(void)
     
    //Adds millis() to packet
     millisHex(runningTime);
-    for(i=7 ;i>=0 ; i--)
+    for(i=0 ;i<8 ; i++)
      packet[packetIncrementor++] = runningTime[i];
      
 
@@ -168,10 +159,10 @@ void  loop(void)
  uint32_t currentMillis = millis();  
  uint32_t value;
  //Serial.println(currentMillis);
- for(i=0;i<8;i=i+2)
+ for(i=7;i>=0;i=i-2)
  {
   value = currentMillis & 0x000000FF;
-  charArray[i+1] = upperNibbleHex(int(value)); 
+  charArray[i-1] = upperNibbleHex(int(value)); 
   charArray[i] = lowerNibbleHex(int(value));
   currentMillis = currentMillis >> 8; 
   //Serial.println(int(value));
