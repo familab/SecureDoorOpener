@@ -123,60 +123,30 @@ void loop() {
 
   }
   
-  if(wg.available())
+  else if(wg.available())
    {  
-     RFID_key.MsgType = '@';
-     RFID_key.badgeType = '$';
-     
-     RFID_key.Attribute_1[0] = '0';
-     RFID_key.Attribute_1[1] = '?';
+     key.MsgType = '@';
+     key.badgeType = '$';     
+     key.Attribute_1[0] = '0';
+     key.Attribute_1[1] = '?';
      
      for(i = 0; i<4 ;i++)
-      RFID_key.Attribute_2[i] = '-';
-      
+      key.Attribute_2[i] = '-';      
      for(i = 0; i<4; i++)
-      RFID_key.Attribute_2[i] = '-';
-      
+      key.Attribute_2[i] = '-';      
      for(i = 0; i<8; i++)
-      RFID_key.time_1[i] = '-';
-      
-      millisHex(tempMillis);
-       for (i=0;i<8;i++)
-        RFID_key.time_2[i] = tempMillis[i];
-          
+      key.time_1[i] = '-';      
+     millisHex(tempMillis);
+     for (i=0;i<8;i++)
+      key.time_2[i] = tempMillis[i];          
      for (i=0; i < 10; i++) 
-      RFID_key.ID[i] = '_'; 
-      
+      key.ID[i] = '_';       
      RFID_Hex(RFID_HexArray, wg.getCode());    
      for(i=2 ;i<8 ; i++)
-      RFID_key.ID[i+8] = RFID_HexArray[i];
+      key.ID[i+8] = RFID_HexArray[i];
       
-     RFID_key.ID_Length = 6;
-     RFID_key.isValid = true; 
-     
-     
-     Record_Num = compareUID_SD(&RFID_HexArray[2],RFID_key.ID_Length,RFID_key.badgeType);
-      if (Record_Num > 0)
-      {
-       RFID_key.Attribute_1[0] = '2';
-       twoByteHex(twoByteStr,(uint16_t)Record_Num);
-       for (i=0;i<4;i++)
-        RFID_key.Attribute_2[i] = twoByteStr[i];
-        unlockDoorFlag = 1;
-      }
-     
-     generatePacket(RFID_packet,RFID_key);
-     for (i=0;i<48;i++)
-      Serial.print(RFID_packet[i]);
-     Serial.println("");
-     
-     if (unlockDoorFlag)
-     {
-      unlockDoor(RFID_key);
-      if(wg.available())
-       wg.getCode();
-      unlockDoorFlag = 0;
-     }
+     key.ID_Length = 6;
+     key.isValid = true; 
   
    }
   
