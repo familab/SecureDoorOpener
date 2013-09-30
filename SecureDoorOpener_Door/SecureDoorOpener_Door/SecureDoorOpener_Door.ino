@@ -180,14 +180,14 @@ void loop() {
       }
       
       
-      
+      while(Serial.available()) Serial.read();//clear any existing serial buffer
       generatePacket(NFC_packet,key);
       for (i=0;i<48;i++)
        Serial.print(NFC_packet[i]);
       Serial.println("");
       key.isValid = 0;
       
-      while(Serial.available()) Serial.read();//clear any existing serial buffer
+
       
       startTime = millis();
       while( (millis() - startTime) < 1000 )
