@@ -187,9 +187,10 @@ void loop() {
       Serial.println("");
       key.isValid = 0;
       
-      while(Serial.available());//clear any existing serial buffer 
+      while(Serial.available()) Serial.read();//clear any existing serial buffer
+      
       startTime = millis();
-      while( (millis() - startTime) < 1500 )
+      while( (millis() - startTime) < 1000 )
        {
         while( Serial.available() )
          {
@@ -201,9 +202,9 @@ void loop() {
             for (i=0;i<4;i++)
              key.Attribute_2[i] = '_';
             unlockDoorFlag = 1;
-            break;
+            
            }
-          //iShortBus wants the D
+          //iShortBus still wants the D
           else if (buffer == 'D')
            {
             key.Attribute_1[0] = '4';
@@ -215,10 +216,14 @@ void loop() {
             generatePacket(NFC_packet,key);
             for (i=0;i<48;i++)
              Serial.print(NFC_packet[i]);
-            break;
+            Serial.println(""); 
+            //Serial.flush(); 
+            
            }            
-         }         
-       }
+         }
+        buffer = 0;         
+       }     
+      
       
       if (unlockDoorFlag)
       {
