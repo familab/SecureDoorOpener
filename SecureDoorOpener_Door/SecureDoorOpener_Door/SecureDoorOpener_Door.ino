@@ -21,6 +21,7 @@
 
 #define PACKET_LENGTH 100
 #define DOOR_LOCK_PIN 9
+#define OPEN_BUTTON 7
 
  struct badge
  {
@@ -79,6 +80,10 @@ EthernetUDP Udp;
 
 //Thanks for coming
 void setup() {
+  
+  pinMode(OPEN_BUTTON, INPUT);
+  digitalWrite(OPEN_BUTTON, HIGH);  //turn on pull up Resistor
+  
   // start the Ethernet and UDP:
   Ethernet.begin(mac,ip);
   Udp.begin(localPort);
@@ -105,6 +110,7 @@ void setup() {
   }
   Serial.println("initialization done.");
   
+ 
   
 
 }
@@ -154,6 +160,34 @@ void loop() {
      key.isValid = true; 
   
    }
+   
+   else if( digitalRead(OPEN_BUTTON) == LOW ){     
+     key.MsgType = '@';
+     key.badgeType = '^';     
+     key.Attribute_1[0] = '0';
+     key.Attribute_1[1] = '0';
+     
+     for(i = 0; i<4 ;i++)
+      key.Attribute_2[i] = '-';      
+     for(i = 0; i<4; i++)
+      key.Attribute_2[i] = '-';      
+     for(i = 0; i<8; i++)
+      key.time_1[i] = '-';      
+     millisHex(tempMillis);
+     for (i=0;i<8;i++)
+      key.time_2[i] = tempMillis[i];          
+     for (i=0; i < 10; i++) 
+      key.ID[i] = '_';             
+     for(i=2 ;i<8 ; i++)
+      key.ID[i+8] = '_';
+      
+     key.ID_Length = 0;
+     key.isValid = true; 
+
+     //Serial.println("Button");
+   }
+   
+   
   
   
       if(key.isValid)
@@ -166,7 +200,14 @@ void loop() {
         key.time_2[i] = tempMillis[i];
       
       key.Attribute_1[0] = '0';
-      key.Attribute_1[1] = '?';
+      
+      if (key.badgeType == '^')
+      {
+       key.Attribute_1[1] = '0';
+       unlockDoorFlag = 1;
+      }
+      else
+       key.Attribute_1[1] = '?'; 
 
       Record_Num = compareUID_SD(UID_Card,key.ID_Length,key.badgeType);
       if (Record_Num > 0)
@@ -179,7 +220,8 @@ void loop() {
        unlockDoorFlag = 1;
       }
       
-      
+      if (key.Attribute_1[1] == '?'){     
+
       while(Serial.available()) Serial.read();//clear any existing serial buffer
       generatePacket(NFC_packet,key);
       for (i=0;i<48;i++)
@@ -188,7 +230,8 @@ void loop() {
       key.isValid = 0;
       
 
-      
+
+        
       startTime = millis();
       while( (millis() - startTime) < 1000 )
        {
@@ -224,6 +267,7 @@ void loop() {
         buffer = 0;         
        }     
       
+      }
       
       if (unlockDoorFlag)
       {
@@ -232,6 +276,7 @@ void loop() {
       if(packetSize)
        Udp.read(packetBuffer,PACKET_LENGTH); //clear buffer
       unlockDoorFlag = 0;
+      key.isValid = 0;
      }
      }
   
